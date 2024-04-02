@@ -1,0 +1,28 @@
+{
+  "name": "import-frozen-builder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue-jsx": "^3.1.0",
+    "@vueuse/core": "^10.9.0",
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@v2icons/ionicons5": "^0.12.0",
+    "@vicons/fluent": "^0.12.0",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "naive-ui": "^2.38.1",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "vfonts": "^0.0.3",
+    "vite": "^5.1.6",
+    "vite-plugin-vue-devtools": "^7.0.18"
+  }
+}
