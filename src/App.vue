@@ -1,85 +1,46 @@
 <script setup lang="jsx">
-  import { ref, computed, onMounted, h } from 'vue';
-  import { useFetch, useDark } from '@vueuse/core';
-  import { NSelect, NFormItem, NCard, NButton, NConfigProvider, NTree, NIcon, darkTheme } from 'naive-ui';
-  import { Edit20Filled } from '@vicons/fluent'
+  import { computed, watch, ref } from 'vue';
+  import { 
+    NSelect,
+    NFormItem,
+    NCard,
+    NButton,
+    NConfigProvider,
+    NTree,
+    NNotificationProvider
+  } from 'naive-ui';
 
-  const apiToken = import.meta.env.VITE_API_TOKEN;
-  const apiURL = import.meta.env.VITE_API_URL;
+  import CommandButtonGroup from './components/CommandButtonGroup.vue';
+  import CommandModal from './components/CommandModal.vue';
 
-  async function fetch(method, endpoint) {
-    const { data } = await useFetch(apiURL + '/' + endpoint, { method, headers: { Authorization: apiToken, GUI: 'Case Management' }});
+  import { useGlobalState, ModalAction, defaultActionModal } from './store'
 
-    return JSON.parse(data.value).data;
-  }
+  const {
+    paymentTypes,
+    paymentType,
+    fileTypes,
+    fileType,
+    sheetTypes,
+    sheetType,
+    flowCommandTypes,
+    dataCommandTypes,
+    flowCommands,
+    dataCommands,
+    actionModal,
+    hasNewDataCommand
+  } = useGlobalState();
 
-  const paymentTypes = ref([]);
-  const paymentType = ref({});
-
-  async function getPaymenTypes() {
-    const data = await fetch('GET', 'payment-types?page_size=1000');
-    paymentTypes.value = data.map(paymentType => ({ id: paymentType.id, name: paymentType.payment_name }));
-  }
-
-  const fileTypes = ref([]);
-  async function getFileTypes() {
-    const data = await fetch('GET', 'frozen-import-file-types?page_size=1000');
-    fileTypes.value = data.map(fileType => ({ id: fileType.id, name: fileType.name, paymentTypeId: fileType.payment_type_id }));
-  }
-
-  const sheetTypes = ref([]);
-  async function getSheetTypes() {
-    const data = await fetch('GET', 'frozen-import-sheet-types?page_size=1000');
-    sheetTypes.value = data.map(sheetType => ({ id: sheetType.id, name: sheetType.name, fileTypeId: sheetType.frozen_import_file_type_id }));
-  }
-
-  const flowCommandTypes = ref([]);
-  async function getFlowCommandTypes() {
-    flowCommandTypes.value = await fetch('GET', 'flow-command-types?page_size=1000');
-  }
-
-  const dataCommandTypes = ref([]);
-  async function getDataCommandTypes() {
-    dataCommandTypes.value= await fetch('GET', 'data-command-types?page_size=1000');
-  };
-
-  const flowCommands = ref([]);
-  async function getFlowCommands() {
-    flowCommands.value = await fetch('GET', 'frozen-import-flow-commands?page_size=100000');
-  }
-
-  const dataCommands = ref([]);
-  async function getDataCommands() {
-    dataCommands.value = await fetch('GET', 'frozen-import-data-commands?page_size=1000');
-  }
-
-  onMounted(() => {
-    useDark();
-    getPaymenTypes();
-    getFileTypes();
-    getSheetTypes();
-    getFlowCommandTypes();
-    getDataCommandTypes();
-    getFlowCommands();
-    getDataCommands();
-  });
-
-  const fileType = ref({});
   const fileTypesByPaymentType = computed(() => {
-    const { id } = paymentType.value;
-    return fileTypes.value.filter(fileType => fileType.paymentTypeId === id);
+    return fileTypes.value.filter(fileType => fileType.paymentTypeId === paymentType.value);
   });
 
-  const sheetType = ref({});
   const sheetTypesByFileType = computed(() => {
-    const { id } = fileType.value;
-    return sheetTypes.value.filter(sheetType => sheetType.fileTypeId === id);
+    return sheetTypes.value.filter(sheetType => sheetType.fileTypeId === fileType.value);
   });
 
   const flowCommandsBySheetType =  computed(() => {
-    const { id } = sheetType.value;
     const data = flowCommands.value
-      .filter(flowCommand => flowCommand.frozen_import_sheet_type_id === 32 /* id */)
+      .filter(flowCommand => flowCommand.frozen_import_sheet_type_id === sheetType.value)
       .sort((a, b) => {
 
         return a.parent_id !== b.parent_id 
@@ -93,11 +54,12 @@
         for (const item of data) {
           if (item.parent_id === parentId) {
             const children = nestData(data, item.id);
-            item.flowCommandTypeName = flowCommandTypes.value.find(flowCommandType => flowCommandType.id === item.flow_command_type_id).name;
+            item.flowCommandTypeName = flowCommandTypes.value.find(flowCommandType => flowCommandType.value === item.flow_command_type_id).label;
             item.label = `${item.flowCommandTypeName} (${item.id})`;
             item.key = item.id;
 
             item.children = children;
+            item.suffix = () => <CommandButtonGroup/>
 
             if (item.payload !== null) {
               item.children = [
@@ -117,80 +79,118 @@
   });
 
   const dataCommandsBySheetType = computed(() => {
-    const { id } = sheetType.value;
+    if (sheetType.value === null) {
+      return [];
+    }
+
+    console.log(dataCommands.value);
+
     const data = dataCommands.value
-      .filter(({ frozen_import_sheet_type_id }) => frozen_import_sheet_type_id === id || frozen_import_sheet_type_id === null)
+      .filter(dataCommand => dataCommand.frozen_import_sheet_type_id === sheetType.value || dataCommand.frozen_import_sheet_type_id === null)
       .map(dataCommand => {
-        const dataCommandTypeName = dataCommandTypes.value.find(dataCommanType => dataCommanType.id === dataCommand.data_command_type_id).name;
+        const dataCommandTypeName = dataCommandTypes.value.find(dataCommanType => dataCommanType.value === dataCommand.data_command_type_id).label;
         const child = { label: dataCommand.payload, key: dataCommand.id };
         dataCommand.key = dataCommand.field;
         dataCommand.label = `${dataCommand.field} (${dataCommandTypeName})`;
 
-        // <NIcon className="mr-2" onClick={() => console.log('here')} size="15" component={<Edit20Filled/>}/>
-        return {...dataCommand, dataCommandTypeName, children: [child], suffix: () => <Nbutton text class="pl-1" ><NIcon><Edit20Filled /></NIcon></Nbutton>}
-      });
+        return {...dataCommand, dataCommandTypeName, children: [child], suffix: () => <CommandButtonGroup action={ModalAction.UpdateDataCommand} data={dataCommand}/> }
+      })
+      .sort((a, b) => b.id - a.id);
 
     return data;
   });
 
+  // Expand first data command when there is new data command added.
+  const expandedKeys = ref([]);
+  watch(hasNewDataCommand, function(value) {
+    if (!value) return;
+
+    const { key } = dataCommandsBySheetType.value.at(0);
+    setTimeout(() => {
+      expandedKeys.value = [key];
+      hasNewDataCommand.value = false;
+    }, 0);
+  });
 </script>
 
 <template>
-  <n-config-provider>
-    <div class="p-4">
-      <section class="flex gap-4 items-center">
-        <n-form-item class="w-1/5" label="Select" path="selectValue">
-          <n-select
-            filterable
-            placeholder="Payment Types"
-          />
-        </n-form-item>
+  <NConfigProvider>
+    <NNotificationProvider placement="bottom-left">
+      <div class="p-4">
+        <section class="flex gap-4 items-center">
+          <NFormItem class="w-1/5" label="Payment Type" path="selectValue">
+            <NSelect
+              v-model:value="paymentType"
+              :options="paymentTypes"
+              placeholder="Select Payment Type"
+              filterable
+            />
+          </NFormItem>
 
-        <n-form-item class="w-1/5" label="Select" path="selectValue">
-          <n-select
-            filterable
-            placeholder="Payment Types"
-          />
-        </n-form-item>
+          <NFormItem class="w-1/5" label="File Type" path="selectValue">
+            <NSelect
+              v-model:value="fileType"
+              :options="fileTypesByPaymentType"
+              :disabled="paymentType === null"
+              placeholder="Select File Type"
+              filterable
+            />
+          </NFormItem>
 
-        <n-form-item class="w-1/5" label="Select" path="selectValue">
-          <n-select
-            filterable
-            placeholder="Payment Types"
-          />
-        </n-form-item>
+          <NFormItem class="w-1/5" label="Sheet Type" path="selectValue">
+            <NSelect
+              v-model:value="sheetType"
+              :options="sheetTypesByFileType"
+              :disabled="fileType === null"
+              placeholder="Select Sheet Type"
+              filterable
+            />
+          </NFormItem>
+        </section>
 
-        <n-button type="primary">Display</n-button>
-      </section>
+        <section class="flex gap-4">
+          <NCard
+            class="w-1/2"
+            title="Data Commands"
+            :segmented="{ content: true }"
+          >
+            <template #header-extra>
+              <NButton
+                type="primary"
+                @click="actionModal = { ...JSON.parse(defaultActionModal), show: true, action: ModalAction.AddDataCommand }"
+                ghost
+              >
+                New Data Command
+              </NButton>
+            </template>
+            <NTree
+              :data="dataCommandsBySheetType"
+              :default-expanded-keys="expandedKeys"
+              expand-on-click
+              block-line
+            />
+          </NCard>
 
-      <section class="flex gap-4">
-        <n-card
-          title="Flow Commands"
-          :segmented="{ content: true }"
-        >
-          <template #header-extra>
-            <n-button type="primary" ghost>New Flow Command</n-button>
-          </template>
-          <n-tree
-            :data="flowCommandsBySheetType"
-            default-expand-all
-            expand-on-click
-            show-line
-            draggable
-          />
-        </n-card>
-        <n-card
-          title="Data Commands"
-          :segmented="{ content: true }"
-        >
-          <template #header-extra>
-            <n-button type="primary" ghost>New Data Command</n-button>
-          </template>
-          <n-tree expand-on-click :data="dataCommandsBySheetType"/>
-        </n-card>
-      </section>
-    </div>
-  </n-config-provider>
+          <NCard
+            title="Flow Commands"
+            :segmented="{ content: true }"
+          >
+            <template #header-extra>
+              <NButton type="primary" ghost>New Flow Command</NButton>
+            </template>
+            <!-- <NTree
+              :data="flowCommandsBySheetType"
+              default-expand-all
+              expand-on-click
+              show-line
+              draggable
+            /> -->
+          </NCard>
+        </section>
+      </div>
+      <CommandModal/>
+    </NNotificationProvider>
+  </NConfigProvider>
 </template>
 
 <style scoped>
