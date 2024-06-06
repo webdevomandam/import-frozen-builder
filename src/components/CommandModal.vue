@@ -1,39 +1,60 @@
 <script setup>
-  import { ref, computed } from 'vue';
-  import { NModal, NFormItem, NSelect, NInput, NCheckbox, NFlex, NButton, useNotification  } from 'naive-ui';
+  import { computed, watch, ref } from 'vue';
+  import { NModal, NFormItem, NSelect, NInput, NCheckbox, NFlex, NButton, useNotification, NForm  } from 'naive-ui';
   import { ModalAction, useGlobalState, defaultActionModal } from '../store';
-  import { useFetch } from '@vueuse/core'
+  import { useFetch } from '@vueuse/core';
 
-  const { hasNewDataCommand, dataCommands, actionModal, dataCommandTypes, sheetType, apiURL, apiToken } = useGlobalState();
+  const {
+    hasNewDataCommand,
+    dataCommands,
+    flowCommands,
+    flowCommandTypes,
+    actionModal,
+    dataCommandTypes,
+    sheetType,
+    apiURL,
+    apiToken,
+    isLiveAPI
+  } = useGlobalState();
 
-  const notification = useNotification()
+  const isLoading = ref(false);
+
+  const beautifiedPayload = ref('');
+  const payload = computed(() => actionModal.value.data.payload);
+  watch(payload, (value) => {
+    beautifiedPayload.value = '';
+
+    if (value !== null && beautifiedPayload.value === '') {
+      beautifiedPayload.value =  JSON.stringify(JSON.parse(value), null, 2);
+      return;
+    }
+
+    return;
+  }, { deep: true });
+
+  const notification = useNotification();
+  const commandTypes = computed(() => actionModal.value.type === 'dataCommand' ? dataCommandTypes.value : flowCommandTypes.value);
 
   const modalTitle = computed(() => {
     const { action } = actionModal.value;
 
-    if (action === 1) {
+    if (action === ModalAction.AddDataCommand) {
       return 'Add Data Command';
     }
 
-    if (action === 2) {
+    if (action === ModalAction.UpdateDataCommand) {
       return 'Update Data Command';
     }
 
-    if (action === 3) {
-      return 'Delete Data Command';
-    }
-
-    if (action === 4) {
+    if (action === ModalAction.AddFlowCommand) {
       return 'Add Flow Command';
     }
 
-    if (action === 5) {
-      return 'Update Flow Command';
+    if (action === ModalAction.UpdateFlowCommand) {
+      return 'Update Flow Commad';
     }
 
-    if (action === 6) {
-      return 'Delete Flow Command';
-    }
+    return;
   });
 
   function isValidJSON(jsonString) {
@@ -58,11 +79,30 @@
       return;
     }
 
+    if (action === ModalAction.AddFlowCommand) {
+      addFlowCommand();
+      return;
+    }
+
+    if (action === ModalAction.UpdateFlowCommand) {
+      updateFlowCommand();
+      return;
+    }
+
     return;
   }
 
+  function unbeautifyPayload(payload) {
+    if (payload === null || payload === '') {
+      return null;
+    }
+
+    return JSON.stringify(JSON.parse(payload), null, 0);
+  }
+
+  // Data Commands
   async function addDataCommand() {
-    const { commandType, field, payload, reload, order } = actionModal.value.data;
+    const { commandType, field, reload, order } = actionModal.value.data;
     if (commandType === null) {
       notification.error({ content: 'Please select Command Type!', duration: 2500 });
       return;
@@ -78,12 +118,12 @@
       return;
     }
 
-    if (payload === null) {
+    if (beautifiedPayload.value === '') {
       notification.error({ content: 'Please input a value for Payload!', duration: 2500 });
       return;
     }
 
-    if (!isValidJSON(payload)) {
+    if (!isValidJSON(beautifiedPayload.value)) {
       notification.error({ content: 'Invalid JSON for Payload!', duration: 2500 });
       return;
     }
@@ -93,17 +133,17 @@
       data_command_type_id       : commandType,
       field                      : field,
       reload                     : reload,
-      payload                    : payload,
+      payload                    : unbeautifyPayload(beautifiedPayload.value),
       order                      : order
     };
 
-    actionModal.value.isLoading = true;
+    isLoading.value = true;
 
-    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-data-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management' }})
+    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-data-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
       .json()
       .post(body);
 
-      actionModal.value.isLoading = false;
+    isLoading.value = false;
 
     if (statusCode.value !== 201) {
       notification.error({ content: 'Something went wrong while saving Data Command!', duration: 2500 });
@@ -114,6 +154,7 @@
     dataCommands.value      = [ dataCommand, ...dataCommands.value ];
     hasNewDataCommand.value = true;
 
+    beautifiedPayload.value = '';
     actionModal.value = JSON.parse(defaultActionModal);
   }
 
@@ -125,17 +166,17 @@
       data_command_type_id       : dataCommand.commandType,
       field                      : dataCommand.field,
       reload                     : dataCommand.reload,
-      payload                    : dataCommand.payload,
+      payload                    : unbeautifyPayload(beautifiedPayload.value),
       order                      : dataCommand.order
     };
 
-    actionModal.value.isLoading = true;
+    isLoading.value = true;
 
-    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${dataCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management' }})
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${dataCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
       .json()
       .patch(body);
 
-    actionModal.value = JSON.parse(defaultActionModal);
+    isLoading.value = false;
 
     if (statusCode.value !== 200) {
       notification.error({ content: 'Something went wrong while updating Data Command!', duration: 2500 });
@@ -150,53 +191,157 @@
       item.data_command_type_id = dataCommand.commandType;
       item.field                = dataCommand.field;
       item.reload               = dataCommand.reload;
-      item.payload              = dataCommand.payload;
+      item.payload              = body.payload;
       item.order                = dataCommand.order;
-
-      console.log(item);
 
       return item;
     });
+
+    beautifiedPayload.value = '';
+    actionModal.value = JSON.parse(defaultActionModal);
   }
 
+  // Flow Commands
+  const parentCommands = computed(() => {
+    const flowCommandName = (id) => flowCommandTypes.value.find(flowCommandType =>  flowCommandType.value === id).label;
+    return flowCommands.value.map(item => ({ label: `(${item.id}) ${flowCommandName(item.flow_command_type_id)}`, value: item.id }));
+  });
+
+  async function addFlowCommand() {
+    const { parentCommand, commandType, order } = actionModal.value.data;
+
+    const body = {
+      frozen_import_sheet_type_id: sheetType.value,
+      parent_id                  : parentCommand,
+      flow_command_type_id       : commandType,
+      payload                    : unbeautifyPayload(beautifiedPayload.value),
+      order
+    };
+
+    isLoading.value = true;
+
+    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-flow-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+      .json()
+      .post(body);
+
+    isLoading.value = false;
+
+    if (statusCode.value !== 201) {
+      notification.error({ content: 'Something went wrong while adding Flow Command!', duration: 2500 });
+      return;
+    }
+
+    const flowCommand = data.value;
+    flowCommands.value = [ ...flowCommands.value, flowCommand ];
+
+    beautifiedPayload.value = '';
+    actionModal.value = JSON.parse(defaultActionModal);
+  }
+
+  async function updateFlowCommand() {
+    const flowCommand = actionModal.value.data;
+
+    const body = {
+      frozen_import_sheet_type_id: sheetType.value,
+      parent_id                  : flowCommand.parentCommand,
+      flow_command_type_id       : flowCommand.commandType,
+      payload                    : unbeautifyPayload(beautifiedPayload.value),
+      order                      : flowCommand.order
+    };
+
+    isLoading.value = true;
+
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${flowCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+      .json()
+      .patch(body);
+
+    isLoading.value = false;
+
+    if (statusCode.value !== 200) {
+      notification.error({ content: 'Something went wrong while updating Flow Command!', duration: 2500 });
+      return;
+    }
+
+    flowCommands.value = flowCommands.value.map(item => {
+      if (item.id !== flowCommand.id) {
+        return item;
+      }
+
+      item.parent_id            = flowCommand.parentCommand;
+      item.flow_command_type_id = flowCommand.commandType;
+      item.payload              = body.payload;
+      item.order                = flowCommand.order;
+
+      return item;
+    });
+
+    beautifiedPayload.value = '';
+    actionModal.value = JSON.parse(defaultActionModal);
+  }
+
+  function beautifyPayload() {
+    beautifiedPayload.value = JSON.stringify(JSON.parse(beautifiedPayload.value), null, 2);
+  }
 </script>
 
 <template>
   <NModal
-    class="w-[600px]"
+    class="w-[800px]"
     v-model:show="actionModal.show"
     :title="modalTitle"
     :mask-closable="false"
     preset="card"
   >
-    <NFormItem label="Command Type">
+    <NFormItem v-if="actionModal.type === 'flowCommand'" label="Parent Command">
       <NSelect
-        v-model:value="actionModal.data.commandType"
-        :options="dataCommandTypes"
-        placeholder="Select Payment Type"
+        v-on:keyup.ctrl.enter="proceed"
+        v-model:value="actionModal.data.parentCommand"
+        :options="parentCommands"
+        placeholder="Select Parent Command"
         filterable
       />
     </NFormItem>
 
-    <NFormItem label="Field">
-      <NInput type="text" v-model:value="actionModal.data.field"/>
+    <NFormItem label="Command Type">
+      <NSelect
+        v-on:keyup.ctrl.enter="proceed"
+        v-model:value="actionModal.data.commandType"
+        :options="commandTypes"
+        placeholder="Select Command Type"
+        filterable
+      />
     </NFormItem>
 
-    <NCheckbox v-model:checked="actionModal.data.reload">
-      Reload
-    </NCheckbox>
+    <template v-if="actionModal.type === 'dataCommand'">
+      <NFormItem label="Field">
+        <NInput v-on:keyup.ctrl.enter="proceed" type="text" v-model:value="actionModal.data.field"/>
+      </NFormItem>
+
+      <NCheckbox
+        v-model:checked="actionModal.data.reload"
+      >
+        Reload
+      </NCheckbox>
+    </template>
 
     <NFormItem class="mt-5" label="Payload">
-      <NInput type="textarea" v-model:value="actionModal.data.payload"/>
+      <NInput
+        v-on:keyup.ctrl.enter="proceed"
+        v-on:keydown.ctrl.shift.f="beautifyPayload"
+        type="textarea"
+        rows="10"
+        v-model:value="beautifiedPayload"
+      />
     </NFormItem>
 
     <NFormItem class="mt-5" label="Order">
-      <NInput type="number" v-model:value="actionModal.data.order"/>
+      <NInput v-on:keyup.ctrl.enter="proceed" type="number" v-model:value="actionModal.data.order"/>
     </NFormItem>
+
     <template #footer>
       <NFlex justify="end">
-        <NButton @click="proceed" :loading="actionModal.isLoading" ghost type="primary">Proceed</NButton>
-        <NButton @click="actionModal = JSON.parse(defaultActionModal)">Close</NButton>
+        <NButton v-on:click="proceed" :loading="isLoading" ghost type="primary">Proceed</NButton>
+        <NButton v-on:click="actionModal = JSON.parse(defaultActionModal)">Close</NButton>
       </NFlex>
     </template>
   </NModal>
