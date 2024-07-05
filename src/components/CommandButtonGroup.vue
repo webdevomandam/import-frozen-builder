@@ -60,7 +60,7 @@
   }
 
   async function removeDataCommand() {
-    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${data.value.id}`, { headers : { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${data.value.id}`, { headers : { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .delete();
 
     if (statusCode.value !== 204) {
@@ -72,7 +72,7 @@
   }
 
   async function removeFlowCommand() {
-    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${data.value.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${data.value.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .delete();
 
     if (statusCode.value !== 204) {

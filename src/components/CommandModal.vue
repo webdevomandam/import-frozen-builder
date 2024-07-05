@@ -139,7 +139,7 @@
 
     isLoading.value = true;
 
-    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-data-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-data-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .json()
       .post(body);
 
@@ -172,7 +172,7 @@
 
     isLoading.value = true;
 
-    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${dataCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-data-commands/${dataCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .json()
       .patch(body);
 
@@ -220,7 +220,7 @@
 
     isLoading.value = true;
 
-    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-flow-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode, data } = await useFetch(`${apiURL.value}/frozen-import-flow-commands`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .json()
       .post(body);
 
@@ -251,7 +251,7 @@
 
     isLoading.value = true;
 
-    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${flowCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value }})
+    const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${flowCommand.id}`, { headers: { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value }})
       .json()
       .patch(body);
 

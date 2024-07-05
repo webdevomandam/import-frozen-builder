@@ -5,12 +5,11 @@ const isLiveAPI = ref(true);
 
 const apiToken = readonly(ref(import.meta.env.VITE_API_TOKEN));
 const apiURL = computed(() => {
-  // return isLiveAPI.value ? import.meta.env.VITE_API_URL_LIVE : import.meta.env.VITE_API_URL_STAGE;
-  return import.meta.env.VITE_API_URL_STAGE;
+  return isLiveAPI.value ? import.meta.env.VITE_API_URL_LIVE : import.meta.env.VITE_API_URL_STAGE;
 })
 
 async function get(endpoint, callback) {
-  const headers = { Authorization: apiToken.value, GUI: 'Case Management', 'Is-Live-Api' : +isLiveAPI.value };
+  const headers = { Authorization: apiToken.value, GUI: 'Case Management', 'Use-Live-Api-For-Import-Frozen' : +isLiveAPI.value };
   const url = `${apiURL.value}/${endpoint}`;
   
   const { data } = await useFetch(url, { method: 'GET', headers});

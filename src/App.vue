@@ -146,7 +146,7 @@
       return;
     }
 
-    const headers = { Authorization: apiToken.value, Gui: 'Case Management', 'Is-Live-Api': +isLiveAPI.value };
+    const headers = { Authorization: apiToken.value, Gui: 'Case Management', 'Use-Live-Api-For-Import-Frozen': +isLiveAPI.value, };
 
     const { statusCode } = await useFetch(`${apiURL.value}/frozen-import-flow-commands/${id}`, { headers })
       .json()
